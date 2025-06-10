@@ -19,6 +19,7 @@
   "permissions": [
     "storage",
     "activeTab",
+    "http://127.0.0.1:5500/*",
     "http://localhost:5000/*",
     "<all_urls>"
   ],
@@ -33,7 +34,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["*://*/*"], 
       "js": ["content/inject.js"],
       "run_at": "document_end"
     }

@@ -1,12 +1,17 @@
+const urlParams = new URLSearchParams(window.location.search);
+const origin = urlParams.get('origin');
+
 document.getElementById('confirmConnect').addEventListener('click', async () => {
   try {
-    // Recupera dados de duas fontes possíveis
     const walletData = await getWalletData();
     
-    // Envia os dados para a página web
+    // Envia para o BACKGROUND, não diretamente para o runtime
     browser.runtime.sendMessage({
       action: "walletConnected",
-      data: walletData
+      data: {
+        ...walletData,
+        origin: origin  // Inclui a origem nos dados
+      }
     });
     
     window.close();

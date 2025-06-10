@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sunaryum Dashboard</title>
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- SDK do Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    
+    <style>
+        :root {
+            --color-primary: #FBBF24;     /* Amarelo vibrante */
+            --color-primary-light: #FDE68A; /* Amarelo claro */
+            --color-accent: #38BDF8;      /* Azul claro */
+            --color-accent-dark: #0EA5E9;  /* Azul mais escuro */
+            --color-dark: #1E293B;        /* Texto escuro */
+            --color-light: #F8FAFC;       /* Fundo claro */
+            --color-success: #34D399;     /* Verde para sucesso */
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--color-light) 0%, #ffffff 100%);
+            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        /* Animação para elementos importantes */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+        
+        .animate-pulse-slow {
+            animation: pulse 3s infinite;
+        }
+        
+        /* Cards com gradiente sutil */
+        .gradient-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f9fafb 100%);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(241, 245, 249, 0.6);
+        }
+        
+        /* Toast de notificação */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 12px;
+            color: white;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.4s ease;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            background: rgba(21, 21, 21, 0.85);
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .toast.success {
+            border-left: 4px solid var(--color-success);
+        }
+        
+        .toast.error {
+            border-left: 4px solid #EF4444;
+        }
+        
+        /* Efeito de vidro para navbar */
+        .glass-nav {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.85);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Abas personalizadas */
+        .tab-active {
+            position: relative;
+            color: var(--color-dark);
+            font-weight: 600;
+        }
+        
+        .tab-active:after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--color-primary);
+            border-radius: 3px;
+        }
+        
+        /* Progresso de conquistas */
+        .progress-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: #E2E8F0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <!-- Navbar -->
+    <nav class="glass-nav fixed top-0 w-full h-16 flex items-center px-4 lg:px-8 z-50">
+        <div class="flex items-center">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center mr-3">
+                <i class="fas fa-sun text-white text-xl"></i>
+            </div>
+            <span class="text-xl font-bold text-slate-800">Sunaryum</span>
+        </div>
+        
+        <div class="ml-auto flex items-center">
+            <div class="mr-4 flex items-center bg-amber-50 px-4 py-1.5 rounded-full">
+                <i class="fas fa-coins text-amber-500 mr-2"></i>
+                <span id="sun-balance" class="font-medium text-slate-800">0 SUN</span>
+            </div>
+            
+            <div class="relative">
+                <button id="user-menu-button" class="flex items-center text-sm rounded-full focus:outline-none" aria-expanded="false" aria-haspopup="true">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center">
+                        <i class="fas fa-user text-white"></i>
+                    </div>
+                </button>
+                
+                <!-- Dropdown Menu -->
+                <div id="user-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-xl py-1 z-20 border border-slate-100">
+                    <div class="px-4 py-3 border-b border-slate-100">
+                        <p class="text-xs text-slate-500 mb-1">Conectado com</p>
+                        <p id="wallet-address" class="font-mono text-sm text-slate-700 truncate">0x000...0000</p>
+                        <div class="flex items-center mt-2">
+                            <span id="username" class="font-medium text-slate-900">Explorador</span>
+                            <button id="edit-username" class="ml-2 text-slate-500 hover:text-blue-500 focus:outline-none" aria-label="Editar nome de usuário">
+                                <i class="fas fa-pencil-alt text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="px-2 py-2">
+                        <a href="#" class="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">
+                            <i class="fas fa-trophy mr-3 text-amber-500"></i> Minhas Conquistas
+                        </a>
+                        <a href="#" class="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">
+                            <i class="fab fa-discord mr-3 text-indigo-500"></i> Conectar Discord
+                        </a>
+                        <a href="#" class="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg" onclick="handleLogout()">
+                            <i class="fas fa-sign-out-alt mr-3 text-red-500"></i> Sair
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Conteúdo Principal -->
+    <main class="pt-20 px-4 pb-8 max-w-7xl mx-auto">
+        <!-- Seção de Boas-vindas -->
+        <section class="mb-8">
+            <div class="gradient-card p-6">
+                <h1 class="text-3xl font-bold text-slate-800 mb-1">Olá, <span id="greeting-username">Explorador</span>!</h1>
+                <p class="text-slate-600 mb-6">Complete missões, ganhe recompensas e suba no ranking da comunidade.</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="border border-slate-200 rounded-xl p-5 bg-gradient-to-br from-amber-50/50 to-white">
+                        <div class="flex items-center mb-3">
+                            <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center mr-3">
+                                <i class="fas fa-coins text-amber-600 text-lg"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-slate-800">Saldo SUN</h3>
+                        </div>
+                        <p id="total-sun" class="text-3xl font-bold text-slate-800">0 <span class="text-amber-600">SUN</span></p>
+                    </div>
+                    
+                    <div class="border border-slate-200 rounded-xl p-5 bg-gradient-to-br from-blue-50/50 to-white">
+                        <div class="flex items-center mb-3">
+                            <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mr-3">
+                                <i class="fas fa-medal text-blue-600 text-lg"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-slate-800">Pontuação</h3>
+                        </div>
+                        <p id="total-points" class="text-3xl font-bold text-slate-800">0 <span class="text-blue-600">pontos</span></p>
+                    </div>
+                    
+                    <div class="border border-slate-200 rounded-xl p-5 bg-gradient-to-br from-green-50/50 to-white">
+                        <div class="flex items-center mb-3">
+                            <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center mr-3">
+                                <i class="fas fa-check-circle text-green-600 text-lg"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-slate-800">Missões</h3>
+                        </div>
+                        <p id="total-missions" class="text-3xl font-bold text-slate-800">0 <span class="text-green-600">concluídas</span></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Abas de seções -->
+        <div class="flex border-b border-slate-200 mb-6 overflow-x-auto">
+            <button data-tab="missions" class="tab-active px-4 py-3 text-slate-600 font-medium">Missões</button>
+            <button data-tab="achievements" class="px-4 py-3 text-slate-600 font-medium">Conquistas</button>
+            <button data-tab="airdrops" class="px-4 py-3 text-slate-600 font-medium">Airdrops</button>
+            <button data-tab="ranking" class="px-4 py-3 text-slate-600 font-medium">Ranking</button>
+        </div>
+        
+        <!-- Conteúdo das abas -->
+        <div id="tab-content">
+            <!-- Missões -->
+            <div id="missions-tab" class="tab-panel active">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Missões Diárias -->
+                    <div class="gradient-card p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                                <i class="fas fa-calendar-day text-amber-500 mr-3"></i> Diárias
+                            </h2>
+                            <div class="flex items-center bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm">
+                                <i class="fas fa-sync-alt mr-2"></i> Atualiza em: 12h
+                            </div>
+                        </div>
+                        
+                        <div id="daily-missions" class="space-y-4">
+                            <!-- As missões serão carregadas aqui via JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Missões Semanais -->
+                    <div class="gradient-card p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                                <i class="fas fa-calendar-week text-blue-500 mr-3"></i> Semanais
+                            </h2>
+                            <div class="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                                <i class="fas fa-sync-alt mr-2"></i> Atualiza em: 3 dias
+                            </div>
+                        </div>
+                        
+                        <div id="weekly-missions" class="space-y-4">
+                            <!-- As missões serão carregadas aqui via JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Streak -->
+                    <div class="gradient-card p-6 lg:col-span-2">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                                <i class="fas fa-fire text-orange-500 mr-3"></i> Sequência Diária
+                            </h2>
+                            <div class="flex items-center bg-gradient-to-r from-orange-100 to-amber-50 px-4 py-2 rounded-full">
+                                <i class="fas fa-gift text-orange-500 mr-2"></i>
+                                <span class="text-orange-700 font-medium">Bônus de 7 dias: 100 SUN</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-col items-center">
+                            <div class="flex flex-wrap justify-center gap-4 mb-8">
+                                <!-- Dias da semana -->
+                                <div class="streak-day w-14 h-14 rounded-full bg-gradient-to-r from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg">
+                                    Seg
+                                </div>
+                                <div class="streak-day w-14 h-14 rounded-full bg-gradient-to-r from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg">
+                                    Ter
+                                </div>
+                                <div class="streak-day w-14 h-14 rounded-full bg-gradient-to-r from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg">
+                                    Qua
+                                </div>
+                                <div class="streak-day w-14 h-14 rounded-full bg-gradient-to-r from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg">
+                                    Qui
+                                </div>
+                                <div class="streak-day w-14 h-14 rounded-full bg-gradient-to-r from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg">
+                                    Sex
+                                </div>
+                                <div class="streak-day w-14 h-14 rounded-full bg-gradient-to-r from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg">
+                                    Sáb
+                                </div>
+                                <div class="streak-day w-14 h-14 rounded-full bg-gradient-to-r from-amber-400 to-amber-600 flex items-center justify-center text-white font-bold text-lg animate-pulse-slow">
+                                    Dom
+                                </div>
+                            </div>
+                            
+                            <div class="text-center mb-6">
+                                <p class="text-lg text-slate-700 mb-2">Sua sequência atual: <span class="font-bold text-green-600">6 dias</span></p>
+                                <p class="text-slate-600">Complete uma missão diária hoje para manter sua sequência!</p>
+                            </div>
+                            
+                            <button id="claim-streak" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-8 py-3 rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5">
+                                <i class="fas fa-bolt mr-2"></i> Reivindicar Recompensa (50 SUN)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Conquistas -->
+            <div id="achievements-tab" class="tab-panel hidden">
+                <div class="gradient-card p-6">
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center">
+                        <i class="fas fa-trophy text-amber-500 mr-3"></i> Suas Conquistas
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="achievements-container">
+                        <!-- Conquistas serão carregadas aqui via JS -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Airdrops -->
+            <div id="airdrops-tab" class="tab-panel hidden">
+                <div class="gradient-card p-6">
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center">
+                        <i class="fas fa-gift text-blue-500 mr-3"></i> Seus Airdrops
+                    </h2>
+                    
+                    <div id="airdrops-container">
+                        <!-- Airdrops serão carregados aqui via JS -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Ranking -->
+            <div id="ranking-tab" class="tab-panel hidden">
+                <div class="gradient-card p-6">
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center">
+                        <i class="fas fa-ranking-star text-green-500 mr-3"></i> Ranking da Comunidade
+                    </h2>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th class="py-3 px-4 text-left text-slate-600 font-semibold">Posição</th>
+                                    <th class="py-3 px-4 text-left text-slate-600 font-semibold">Usuário</th>
+                                    <th class="py-3 px-4 text-left text-slate-600 font-semibold">Pontos</th>
+                                    <th class="py-3 px-4 text-left text-slate-600 font-semibold">SUN Coins</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ranking-body">
+                                <!-- Ranking será carregado aqui via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-6 flex justify-center">
+                        <button id="load-more-ranking" class="bg-gradient-to-r from-slate-700 to-slate-900 text-white px-6 py-2.5 rounded-full font-medium shadow hover:shadow-md transition">
+                            Carregar Mais
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>  
+    </main>
+
+    <!-- Toast de notificação -->
+    <div id="toast" class="toast"></div>
+
+    <script src="script/dashboard.js">
+      
+    </script>
+</body>
+</html>

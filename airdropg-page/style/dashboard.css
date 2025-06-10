@@ -1,0 +1,104 @@
+:root {
+    --color-primary: #FBBF24;     /* Amarelo vibrante */
+    --color-primary-light: #FDE68A; /* Amarelo claro */
+    --color-accent: #38BDF8;      /* Azul claro */
+    --color-accent-dark: #0EA5E9;  /* Azul mais escuro */
+    --color-dark: #1E293B;        /* Texto escuro */
+    --color-light: #F8FAFC;       /* Fundo claro */
+    --color-success: #34D399;     /* Verde para sucesso */
+}
+
+body {
+    background: linear-gradient(135deg, var(--color-light) 0%, #ffffff 100%);
+    min-height: 100vh;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Animação para elementos importantes */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+    100% { transform: scale(1); }
+}
+
+.animate-pulse-slow {
+    animation: pulse 3s infinite;
+}
+
+/* Cards com gradiente sutil */
+.gradient-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f9fafb 100%);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(241, 245, 249, 0.6);
+}
+
+/* Toast de notificação */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 16px 24px;
+    border-radius: 12px;
+    color: white;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.4s ease;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+    background: rgba(21, 21, 21, 0.85);
+}
+
+.toast.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.toast.success {
+    border-left: 4px solid var(--color-success);
+}
+
+.toast.error {
+    border-left: 4px solid #EF4444;
+}
+
+/* Efeito de vidro para navbar */
+.glass-nav {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Abas personalizadas */
+.tab-active {
+    position: relative;
+    color: var(--color-dark);
+    font-weight: 600;
+}
+
+.tab-active:after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--color-primary);
+    border-radius: 3px;
+}
+
+/* Progresso de conquistas */
+.progress-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: #E2E8F0;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+    border-radius: 4px;
+}
