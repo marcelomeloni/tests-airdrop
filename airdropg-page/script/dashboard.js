@@ -28,7 +28,7 @@
   // Funções para manipulação do DOM quando a página carrega
   document.addEventListener('DOMContentLoaded', async function() {
       // Inicialização do dashboard
-      await initSupabaseAuth();
+      await initAuth();
       
       // Carregar dados do usuário
       await fetchUserData();
@@ -62,39 +62,42 @@
   });
 
   // Inicializar autenticação Supabase
-  async function initSupabaseAuth() {
-      const { data: { session }, error } = await supabaseClient.auth.getSession();
-      
-      if (error) {
-          showToast('Erro ao verificar sessão: ' + error.message, 'error');
-          return;
-      }
-      
-      if (session) {
-          currentSession = session;
-          await fetchUserData();
-      } else {
-          // Redirecionar para login se não autenticado
-          window.location.href = 'home.html';
-      }
-  }
+  async function initAuth() {
+    const walletAddress = localStorage.getItem('sunaryumWalletAddress');
+    const userId = localStorage.getItem('sunaryumUserId');
+    
+    if (!walletAddress) {
+        // Redirecionar para login se não autenticado
+        window.location.href = 'home.html';
+        return;
+    }
+    
+    currentSession = { 
+        user: { 
+            id: userId,
+            walletAddress: walletAddress
+        } 
+    };
+    
+    await fetchUserData();
+}
 
-  // Buscar dados do usuário
-  async function fetchUserData() {
-      if (!currentSession) return;
-      
-      const { data: user, error } = await supabaseClient
-          .from('users')
-          .select('*')
-          .eq('id', currentSession.user.id)
-          .single();
-      
-      if (error) {
-          showToast('Erro ao carregar dados do usuário: ' + error.message, 'error');
-          return;
-      }
-      
-      currentUser = user;
+// Modifique a função fetchUserData para usar o walletAddress
+async function fetchUserData() {
+    if (!currentSession) return;
+    
+    const { data: user, error } = await supabaseClient
+        .from('users')
+        .select('*')
+        .eq('wallet_address', currentSession.user.walletAddress)
+        .single();
+    
+    if (error) {
+        showToast('Erro ao carregar dados do usuário: ' + error.message, 'error');
+        return;
+    }
+    
+    currentUser = user;
       
       // Atualizar UI com dados do usuário
       elements.walletAddress.textContent = user.wallet_address;
@@ -393,70 +396,109 @@
 
   // Configurar edição de nome de usuário
   function setupUsernameEdit() {
-      const editButton = document.getElementById('edit-username');
-      editButton.addEventListener('click', function() {
-          const usernameSpan = document.getElementById('username');
-          const currentUsername = usernameSpan.textContent;
-          
-          // Criar input para edição
-          const input = document.createElement('input');
-          input.type = 'text';
-          input.value = currentUsername;
-          input.className = 'border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 font-medium w-full max-w-[180px]';
-          
-          // Substituir o span pelo input
-          usernameSpan.replaceWith(input);
-          input.focus();
-          
-          // Criar botões de salvar e cancelar
-          const saveButton = document.createElement('button');
-          saveButton.className = 'ml-2 bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-600 transition';
-          saveButton.innerHTML = 'Salvar';
-          saveButton.addEventListener('click', function() {
-              saveUsername(input.value);
-          });
-          
-          const cancelButton = document.createElement('button');
-          cancelButton.className = 'ml-2 bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-300 transition';
-          cancelButton.innerHTML = 'Cancelar';
-          cancelButton.addEventListener('click', function() {
-              // Restaurar o nome original
-              input.replaceWith(usernameSpan);
-              saveButton.remove();
-              cancelButton.remove();
-          });
-          
-          editButton.replaceWith(saveButton);
-          saveButton.after(cancelButton);
-      });
-  }
+    const editButton = document.getElementById('edit-username');
+    const usernameSpan = document.getElementById('username');
+    
+    editButton.addEventListener('click', function() {
+        const currentUsername = usernameSpan.textContent;
+        
+        // Criar container para os elementos de edição
+        const editContainer = document.createElement('div');
+        editContainer.className = 'flex items-center gap-2';
+        
+        // Criar input para edição
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentUsername;
+        input.className = 'border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 font-medium w-full max-w-[180px]';
+        input.maxLength = 20; // Limite de caracteres
+        
+        // Criar botão de salvar
+        const saveButton = document.createElement('button');
+        saveButton.className = 'bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-600 transition';
+        saveButton.innerHTML = '<i class="fas fa-check"></i>';
+        
+        // Criar botão de cancelar
+        const cancelButton = document.createElement('button');
+        cancelButton.className = 'bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-300 transition';
+        cancelButton.innerHTML = '<i class="fas fa-times"></i>';
+        
+        // Adicionar eventos
+        saveButton.addEventListener('click', async function() {
+            if (input.value.trim() === '') {
+                showToast('O nome de usuário não pode estar vazio', 'error');
+                return;
+            }
+            await saveUsername(input.value.trim());
+            editContainer.replaceWith(usernameSpan);
+            editButton.style.display = 'inline-block';
+        });
+        
+        cancelButton.addEventListener('click', function() {
+            editContainer.replaceWith(usernameSpan);
+            editButton.style.display = 'inline-block';
+        });
+        
+        // Adicionar elementos ao container
+        editContainer.appendChild(input);
+        editContainer.appendChild(saveButton);
+        editContainer.appendChild(cancelButton);
+        
+        // Substituir o span pelo container de edição
+        usernameSpan.replaceWith(editContainer);
+        editButton.style.display = 'none';
+        input.focus();
+    });
+}
 
-  // Salvar nome de usuário
-  async function saveUsername(newUsername) {
-      if (!currentUser) return;
-      
-      try {
-          const { error } = await supabaseClient
-              .from('users')
-              .update({ username: newUsername })
-              .eq('id', currentUser.id);
-          
-          if (error) throw error;
-          
-          // Atualizar UI
-          currentUser.username = newUsername;
-          elements.username.textContent = newUsername;
-          elements.greetingUsername.textContent = newUsername;
-          
-          // Restaurar elementos
-          document.querySelector('.bg-green-500').nextElementSibling.remove();
-          document.querySelector('.bg-green-500').replaceWith(document.getElementById('edit-username'));
-          
-          showToast('Nome de usuário atualizado com sucesso!', 'success');
-      } catch (error) {
-          showToast('Erro ao atualizar nome: ' + error.message, 'error');
-      }
-  }
+async function saveUsername(newUsername) {
+    if (!currentUser) {
+        showToast('Usuário não identificado', 'error');
+        return;
+    }
+    
+    try {
+        // Verificar se o username já existe
+        const { data: existingUser, error: checkError } = await supabaseClient
+            .from('users')
+            .select('id')
+            .eq('username', newUsername)
+            .neq('id', currentUser.id)
+            .maybeSingle();
+        
+        if (checkError) throw checkError;
+        
+        if (existingUser) {
+            showToast('Este nome de usuário já está em uso', 'error');
+            return;
+        }
+        
+        // Atualizar APENAS o username no banco de dados
+        const { error } = await supabaseClient
+            .from('users')
+            .update({ 
+                username: newUsername  // Removido o updated_at
+            })
+            .eq('id', currentUser.id);
+        
+        if (error) throw error;
+        
+        // Atualizar localmente
+        currentUser.username = newUsername;
+        document.getElementById('username').textContent = newUsername;
+        
+        // Atualizar em outros lugares da UI se necessário
+        const greetingElements = document.querySelectorAll('.greeting-username');
+        greetingElements.forEach(el => {
+            el.textContent = newUsername;
+        });
+        
+        showToast('Nome de usuário atualizado com sucesso!', 'success');
+    } catch (error) {
+        console.error('Erro ao atualizar username:', error);
+        showToast('Erro ao atualizar nome: ' + error.message, 'error');
+    }
+}
 
   // Configurar eventos de missões
   function setupMissionEvents() {
@@ -534,7 +576,7 @@
           const { error: userError } = await supabaseClient
               .from('users')
               .update({
-                  sun_balance: currentUser.sun_balance + reward
+                  total_points: currentUser.total_points + reward
               })
               .eq('id', currentUser.id);
           
@@ -572,17 +614,10 @@
 
   // Função para logout
   function handleLogout() {
-    supabaseClient.auth.signOut()
-          .then(() => {
-              showToast('Você foi desconectado com sucesso.', 'success');
-              setTimeout(() => {
-                  window.location.href = 'home.html';
-              }, 1500);
-          })
-          .catch(error => {
-              showToast('Erro ao desconectar: ' + error.message, 'error');
-          });
-  }
+    localStorage.removeItem('sunaryumWalletAddress');
+    localStorage.removeItem('sunaryumUserId');
+    window.location.href = 'home.html';
+}
 
   // Função para exibir toasts de notificação
   function showToast(message, type) {
